@@ -2,17 +2,15 @@
 # tasks file for backup-sqldump-to-s3
 - name: Put miniturerised DB to s3
 
-pre_tasks:
+#pre_tasks:
 #    - name: Delete previous database dumps if present
 #      command: rm -rvf /ansible-temp/*sql*
 #      ignore_errors: yes
-
-
 - name: Compile a list of Databases for S3 store
-    shell: mysql -B -e "show databases" | grep -v 'Database\|information_schema\|performance_schema\|sys'
-    register: database_export_list
-    changed_when: False
-    tags: dbexport
+  shell: mysql -B -e "show databases" | grep -v 'Database\|information_schema\|performance_schema\|sys'
+  register: database_export_list
+  changed_when: False
+  tags: dbexport
 
 - debug vars=database_export_list
 
@@ -33,15 +31,15 @@ pre_tasks:
 
 - name: Move old db dumps from latest to old
   command: sudo s3cmd mv --force {{s3_dev_db_url}}latest/{{item}}.sql.gz.gpg s3://{{s3_dev_db_url}}old/{{item}}.sql.gz.gpg
-    with_items: "{{database_export_list.stdout_lines}}"
-    ignore_errors: yes
+  with_items: "{{database_export_list.stdout_lines}}"
+  ignore_errors: yes
 
 # Gpg encrypt the sql dumps    
 - name: Encrypt the compressed database backup files
-    command: gpg --encrypt --batch --trust-model always --recipient developers@memiah.co.uk {{item}}.sql.gz
-    with_items: "{{database_export_list.stdout_lines}}"
+  command: gpg --encrypt --batch --trust-model always --recipient developers@memiah.co.uk {{item}}.sql.gz
+  with_items: "{{database_export_list.stdout_lines}}"
 
 # Send to s3 storage bits
 - name: Put the sql.gz dumps to s3 cloud storage
-    command: s3cmd sync --server-side-encryption -r /ansible-temp/{{item}}.sql.gz.gpg s3://{{s3_dev_db_url}}latest/{{item}}.sql.gz.gpg
-    with_items: "{{database_export_list.stdout_lines}}"
+  command: s3cmd sync --server-side-encryption /ansible-temp/{{item}}.sql.gz.gpg s3://{{s3_dev_db_url}}latest/{{item}}.sql.gz.gpg
+  with_items: "{{database_export_list.stdout_lines}}"
